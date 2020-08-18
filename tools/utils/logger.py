@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 import sys
 
 class Logger:
-    b = "bbbbbbbbbb"
     def __init__(self, out=sys.stderr):
         self.out = out
 
@@ -13,4 +13,7 @@ class Logger:
 
     def warning(self, msg):
         self.out.write("[warning]" + msg + "\n")
+
+    def debug(self, msg):
+        self.out.write("[debug]" + msg + "\n")
 

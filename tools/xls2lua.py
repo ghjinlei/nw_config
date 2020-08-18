@@ -1,11 +1,13 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #coding:utf-8
 import sys
 import os
 import re
 import argparse
+from sys import exit
 from openpyxl import load_workbook
-from logger import Logger
+sys.path.append(os.path.dirname(__file__))
+from utils.logger import Logger
 
 KEY_ROW   = 2
 TYPE_ROW  = 3
@@ -26,7 +28,6 @@ VTYPE_FLOAT       = "float"
 VTYPE_BOOL        = "bool"
 VTYPE_STRING      = "string"
 
-write = sys.stdout.write
 logger = Logger(sys.stderr)
 
 pre_dump_table = None
@@ -63,7 +64,7 @@ def adjust_type(value):
 def parse_type(value, vtype):
     if type(value) == type(""):
         value = value.strip()
-    if value == "":
+    if value == "" or value == None:
         return None
 
     if vtype == VTYPE_RAWDATA:
@@ -187,26 +188,35 @@ def parse_sheet(main_table, ws, keyrow, typerow, datarow, sheet_name, export_typ
             cell = ws.cell(row=row_idx, column=col_idx)
             value = xls_format(cell, sheet_name)
             value = parse_value(value, field_info)
+            if value is None:
+                continue
             push_value(value, field_info[FIELD_OP_NAME], row_data)
 
     return sheet_table
 
 
-def gen_table(xlspath, export_type=None):
+def gen_table(xlspath, export_type):
     wb = load_workbook(filename=xlspath, data_only=True)
     ws_list = wb.worksheets
 
-    assert ws_list[0].title == "main", "第一张工作表必须是main(%s)" % xlspath
+    main_ws = ws_list[0]
+    assert main_ws.title == "main", "第一张工作表必须是main(%s)" % xlspath
 
     main_table = {}
+    main_table = parse_sheet(main_table, main_ws, KEY_ROW, TYPE_ROW, DATA_ROW, "main", export_type)
+
     for ws in ws_list:
         sheet_name = ws.title
 
-        if sheet_name == "main":
-            main_table = parse_sheet(main_table, ws, KEY_ROW, TYPE_ROW, DATA_ROW, sheet_name, export_type)
-        elif sheet_name == "desc":
-            pass
-        else:
+        if sheet_name not in main_table:
+            continue
+
+        output = None
+        if "output" in main_table[sheet_name]:
+            output = main_table[sheet_name]["output"]
+        output = "sc" if not output else output
+
+        if output.find(export_type) > -1:
             sheet_table = parse_sheet(main_table, ws, KEY_ROW, TYPE_ROW, DATA_ROW, sheet_name, export_type)
             main_table[sheet_name][CONTENT] = sheet_table
 
@@ -220,6 +230,7 @@ StringType = type("")
 NoneType = type(None)
 ListType = type([])
 ExtendType = type(ExtendValue(""))
+
 base_type_dict = {
     IntType       : True,
     FloatType     : True,
@@ -229,7 +240,8 @@ base_type_dict = {
     ListType      : True,
     ExtendType    : True,
 }
-def dump_base_type(value):
+def dump_base_type(value, pf):
+    write = pf.write
     value_type = type(value)
     if value_type == IntType:
         write("%d" % value)
@@ -248,17 +260,19 @@ def dump_base_type(value):
     elif value_type == ListType:
         write("{")
         for x in value:
-            dump_base_type(x)
+            dump_base_type(x, pf)
             write(",")
         write("}")
     elif value_type == InstanceType:
         write(str(value))
 
-def dump_value(value, level=1):
-    value_type = type(value)
+def dump_value(value, level=1, pf=None):
+    pf = pf if pf else sys.stdout
+    write = pf.write
 
+    value_type = type(value)
     if value_type in base_type_dict:
-        dump_base_type(value)
+        dump_base_type(value, pf)
     elif value_type == DictType:
         write("{\n")
 
@@ -271,7 +285,7 @@ def dump_value(value, level=1):
                 write("[%d] = " % k)
             else:
                 write("%s = " % k)
-            dump_value(v, level + 1)
+            dump_value(v, level + 1, pf)
             write(",\n")
 
         for i in range(level - 1):
@@ -286,12 +300,15 @@ def main():
     args = parser.parse_args()
 
     filename = args.filename
-    export_type = args.export_type
+    export_type = args.export_type or FIELD_OP_SERVER
 
     if not os.path.isfile(filename):
         exit("no input file specified")
 
     data_table = gen_table(filename, export_type)
+
+    if pre_dump_table:
+        data_table = pre_dump_table(data_table, filename)
 
     dump_value(data_table)
 
