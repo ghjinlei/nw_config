@@ -240,8 +240,8 @@ base_type_dict = {
     ListType      : True,
     ExtendType    : True,
 }
-def dump_base_type(value, pf):
-    write = pf.write
+def dump_base_type(value, f):
+    write = f.write
     value_type = type(value)
     if value_type == IntType:
         write("%d" % value)
@@ -260,19 +260,19 @@ def dump_base_type(value, pf):
     elif value_type == ListType:
         write("{")
         for x in value:
-            dump_base_type(x, pf)
+            dump_base_type(x, f)
             write(",")
         write("}")
     elif value_type == InstanceType:
         write(str(value))
 
-def dump_value(value, level=1, pf=None):
-    pf = pf if pf else sys.stdout
-    write = pf.write
+def dump_value(value, level=1, f=None):
+    f = f if f else sys.stdout
+    write = f.write
 
     value_type = type(value)
     if value_type in base_type_dict:
-        dump_base_type(value, pf)
+        dump_base_type(value, f)
     elif value_type == DictType:
         write("{\n")
 
@@ -285,7 +285,7 @@ def dump_value(value, level=1, pf=None):
                 write("[%d] = " % k)
             else:
                 write("%s = " % k)
-            dump_value(v, level + 1, pf)
+            dump_value(v, level + 1, f)
             write(",\n")
 
         for i in range(level - 1):
@@ -310,8 +310,11 @@ def main():
     if pre_dump_table:
         data_table = pre_dump_table(data_table, filename)
 
-    dump_value(data_table)
-
+    output_f = sys.stdout
+    output_f.write("local datatable =\n")
+    dump_value(data_table, 1, output_f)
+    output_f.write("\nfunction get_datatable() return datatable end\n")
+    output_f.write("\nfunction get_content(sheet_name) return datatable[sheet_name].content end\n")
 
 if __name__  == "__main__":
     main()

@@ -18,16 +18,19 @@ key_map = {
     "output_server"  : "string",
 }
 cmd_info_map = read_excel_data("./export_cmds.xlsx", "main", key_map, "cmd")
-print(cmd_info_map)
 
 logger = Logger(sys.stderr)
 
 def save_autocode(filepath, data):
-    pf = os.open(filepath, "wb")
+    dirpath = os.path.dirname(filepath)
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
     data = data.replace("\r\n", "\n")
-    pf.write(data)
-    pf.flush()
-    pf.close()
+    with open(filepath, "w+") as f:
+        f.write(data)
+        f.flush()
+        f.close()
 
 
 def gen_autocode_by_info(cmd_info):
