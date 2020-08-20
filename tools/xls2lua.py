@@ -26,6 +26,7 @@ VTYPE_RAWDATA     = "rawdata"
 VTYPE_INT         = "int"
 VTYPE_FLOAT       = "float"
 VTYPE_BOOL        = "bool"
+VTYPE_BIT         = "bit"
 VTYPE_STRING      = "string"
 
 logger = Logger(sys.stderr)
@@ -87,6 +88,11 @@ def parse_type(value, vtype):
             exit("'%s' can not convert to bool." % value)
     elif vtype == VTYPE_STRING:
         value = str(adjust_type(value))
+    elif vtype == VTYPE_BIT:
+        bitstrlist = str(adjust_type(value)).split(",")
+        value = 0
+        for i in range(0, len(bitstrlist)):
+            value = value + math.pow(2, int(bitstrlist[i]))
     elif re.match("func\((.*)\)", vtype):
         if type(value) == type(True):
             value = value and "true" or "false"
